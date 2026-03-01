@@ -1,310 +1,167 @@
+
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>Sistema Mestre Iago</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labirinto do Lobo</title>
 
 <style>
-body{
-margin:0;
-font-family:monospace;
-background:black;
-color:#00ff88;
-overflow-x:hidden;
+body {
+    margin: 0;
+    background: black;
+    overflow: hidden;
+    font-family: Arial;
+    color: white;
+    text-align: center;
 }
 
-canvas{
-position:fixed;
-top:0;
-left:0;
-z-index:-1;
+canvas {
+    background: #111;
+    display: block;
+    margin: auto;
+    border: 3px solid #444;
 }
 
-.box{
-background:#111;
-padding:20px;
-margin:20px auto;
-width:320px;
-border-radius:10px;
-box-shadow:0 0 15px #00ff88;
-text-align:center;
-}
-
-input,select,button{
-margin:5px;
-padding:8px;
-width:90%;
-background:black;
-color:#00ff88;
-border:1px solid #00ff88;
-}
-
-button:hover{
-background:#00ff88;
-color:black;
-cursor:pointer;
-}
-
-#gato{
-position:fixed;
-top:20px;
-left:20px;
-display:none;
-animation:flutuar 3s infinite ease-in-out;
-}
-
-@keyframes flutuar{
-0%{transform:translateY(0)}
-50%{transform:translateY(-10px)}
-100%{transform:translateY(0)}
-}
-
-#skull{
-position:fixed;
-bottom:20px;
-right:20px;
-font-size:28px;
-cursor:pointer;
-}
-
-#keyIcon{
-position:fixed;
-top:20px;
-right:20px;
-font-size:28px;
-cursor:pointer;
+#info {
+    margin-top: 10px;
 }
 </style>
 </head>
 <body>
 
-<canvas id="matrix"></canvas>
-
-<div id="login" class="box">
-<h2>Login</h2>
-<input id="email" placeholder="Usuário">
-<input id="senha" type="password" placeholder="Senha">
-<button onclick="login()">Entrar</button>
-<p id="erro"></p>
-</div>
-
-<div id="app" style="display:none;">
-<h2 id="boasVindas"></h2>
-
-<div id="gato">
-<img src="https://media.giphy.com/media/13borq7Zo2kulO/giphy.gif" width="120"
-style="filter:drop-shadow(0 0 10px #00aaff)">
-<div>🐱 Bem-vindo, Mestre Iago</div>
-</div>
-
-<div id="keyIcon" onclick="mostrarSenha()">🔑</div>
-
-<div class="box">
-<h3>Adicionar Registro</h3>
-<input id="valor" type="number" placeholder="Valor">
-<select id="tipo">
-<option value="ganho">Ganho</option>
-<option value="gasto">Gasto</option>
-</select>
-<select id="categoria">
-<option>Comida</option>
-<option>Entretenimento</option>
-<option>Transporte</option>
-<option>Outros</option>
-</select>
-<button onclick="add()">Salvar</button>
-<p id="saldo"></p>
-</div>
-
-<div class="box">
-<h3>Meta</h3>
-<input id="nomeMeta" placeholder="Nome da meta">
-<input id="valorMeta" type="number" placeholder="Valor total">
-<input type="date" id="dataMeta">
-<button onclick="criarMeta()">Criar Meta</button>
-<p id="metaInfo"></p>
-</div>
-
-<div class="box">
-<canvas id="graficoGeral"></canvas>
-</div>
-
-<div class="box">
-<canvas id="graficoCategoria"></canvas>
-</div>
-
-</div>
-
-<div id="admin" class="box" style="display:none;">
-<h3>Área Admin</h3>
-<input id="novoUser" placeholder="Novo usuário">
-<input id="novaSenha" placeholder="Senha">
-<select id="nivel">
-<option value="user">Usuário</option>
-<option value="admin">Admin</option>
-</select>
-<button onclick="criarUsuario()">Criar</button>
-<div id="lista"></div>
-</div>
-
-<div id="trocarSenha" class="box" style="display:none;">
-<h3>Alterar Senha</h3>
-<input type="password" id="senhaAtual" placeholder="Senha Atual">
-<input type="password" id="novaSenhaUser" placeholder="Nova Senha">
-<button onclick="alterarSenha()">Salvar</button>
-</div>
-
-<div id="skull" onclick="codigoAdmin()">💀</div>
+<h2>🐺 Fuja do Lobo!</h2>
+<canvas id="game"></canvas>
+<div id="info">Use as SETAS para se mover</div>
 
 <script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-/* MATRIX */
-const canvas=document.getElementById("matrix");
-const ctx=canvas.getContext("2d");
-canvas.height=window.innerHeight;
-canvas.width=window.innerWidth;
-let letras="01";
-let font=14;
-let colunas=canvas.width/font;
-let drops=[];
-for(let x=0;x<colunas;x++) drops[x]=1;
-function draw(){
-ctx.fillStyle="rgba(0,0,0,0.05)";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-ctx.fillStyle="#00ff88";
-ctx.font=font+"px monospace";
-for(let i=0;i<drops.length;i++){
-let text=letras[Math.floor(Math.random()*letras.length)];
-ctx.fillText(text,i*font,drops[i]*font);
-if(drops[i]*font>canvas.height&&Math.random()>0.975)drops[i]=0;
-drops[i]++;
-}
-}
-setInterval(draw,33);
+const size = 25; 
+const rows = 20;
+const cols = 20;
 
-/* DADOS */
-let usuarios=JSON.parse(localStorage.getItem("usuarios"))||[
-{email:"iago",senha:"mestre",role:"admin"}
-];
-let atual=null;
+canvas.width = cols * size;
+canvas.height = rows * size;
 
-function salvarUsuarios(){
-localStorage.setItem("usuarios",JSON.stringify(usuarios));
+let maze = [];
+let player = {x: 0, y: 0};
+let wolf = {x: cols-1, y: rows-1};
+let exit = {x: cols-1, y: 0};
+
+function generateMaze() {
+    maze = [];
+    for(let y = 0; y < rows; y++) {
+        let row = [];
+        for(let x = 0; x < cols; x++) {
+            row.push(Math.random() > 0.3 ? 0 : 1);
+        }
+        maze.push(row);
+    }
+
+    maze[0][0] = 0;
+    maze[rows-1][cols-1] = 0;
+    maze[exit.y][exit.x] = 0;
 }
 
-function login(){
-let email=document.getElementById("email").value;
-let senha=document.getElementById("senha").value;
-let user=usuarios.find(u=>u.email===email&&u.senha===senha);
-if(user){
-atual=user;
-document.getElementById("login").style.display="none";
-document.getElementById("app").style.display="block";
-document.getElementById("boasVindas").innerText="👑 Bem-vindo "+user.email;
-if(user.email==="iago"){
-document.getElementById("gato").style.display="block";
-}
-atualizarTudo();
-}else{
-document.getElementById("erro").innerText="Acesso Negado";
-}
+function drawMaze() {
+    for(let y = 0; y < rows; y++) {
+        for(let x = 0; x < cols; x++) {
+            if(maze[y][x] === 1) {
+                ctx.fillStyle = "#333";
+            } else {
+                ctx.fillStyle = "#000";
+            }
+            ctx.fillRect(x*size, y*size, size, size);
+        }
+    }
 }
 
-function add(){
-let valor=parseFloat(document.getElementById("valor").value);
-let tipo=document.getElementById("tipo").value;
-let categoria=document.getElementById("categoria").value;
-let dados=JSON.parse(localStorage.getItem(atual.email))||[];
-dados.push({valor,tipo,categoria});
-localStorage.setItem(atual.email,JSON.stringify(dados));
-atualizarTudo();
+function drawPlayer() {
+    ctx.fillStyle = "cyan";
+    ctx.fillRect(player.x*size, player.y*size, size, size);
 }
 
-function atualizarTudo(){
-let dados=JSON.parse(localStorage.getItem(atual.email))||[];
-let saldo=0;
-let ganhos=0;
-let gastos=0;
-let categorias={};
+function drawWolf() {
+    ctx.fillStyle = "red";
+    ctx.fillRect(wolf.x*size, wolf.y*size, size, size);
+}
 
-dados.forEach(d=>{
-if(d.tipo==="ganho"){saldo+=d.valor;ganhos+=d.valor;}
-else{saldo-=d.valor;gastos+=d.valor;}
+function drawExit() {
+    ctx.fillStyle = "lime";
+    ctx.fillRect(exit.x*size, exit.y*size, size, size);
+}
 
-if(!categorias[d.categoria])categorias[d.categoria]=0;
-categorias[d.categoria]+=d.valor;
+function moveWolf() {
+    let dx = player.x - wolf.x;
+    let dy = player.y - wolf.y;
+
+    let moveX = dx !== 0 ? dx/Math.abs(dx) : 0;
+    let moveY = dy !== 0 ? dy/Math.abs(dy) : 0;
+
+    if(Math.abs(dx) > Math.abs(dy)) {
+        if(maze[wolf.y][wolf.x + moveX] === 0)
+            wolf.x += moveX;
+    } else {
+        if(maze[wolf.y + moveY] && maze[wolf.y + moveY][wolf.x] === 0)
+            wolf.y += moveY;
+    }
+}
+
+function checkGame() {
+    if(player.x === wolf.x && player.y === wolf.y) {
+        alert("🐺 O LOBO TE PEGOU!");
+        resetGame();
+    }
+
+    if(player.x === exit.x && player.y === exit.y) {
+        alert("🚪 VOCÊ ESCAPOU!");
+        resetGame();
+    }
+}
+
+function resetGame() {
+    player = {x: 0, y: 0};
+    wolf = {x: cols-1, y: rows-1};
+    exit = {
+        x: Math.floor(Math.random()*cols),
+        y: Math.floor(Math.random()*rows)
+    };
+    generateMaze();
+}
+
+document.addEventListener("keydown", e => {
+    let nx = player.x;
+    let ny = player.y;
+
+    if(e.key === "ArrowUp") ny--;
+    if(e.key === "ArrowDown") ny++;
+    if(e.key === "ArrowLeft") nx--;
+    if(e.key === "ArrowRight") nx++;
+
+    if(maze[ny] && maze[ny][nx] === 0) {
+        player.x = nx;
+        player.y = ny;
+        moveWolf();
+        checkGame();
+    }
+
+    draw();
 });
 
-document.getElementById("saldo").innerText="Saldo: R$ "+saldo;
-
-new Chart(document.getElementById("graficoGeral"),{
-type:"doughnut",
-data:{
-labels:["Ganhos","Gastos"],
-datasets:[{data:[ganhos,gastos],
-backgroundColor:["#00ff88","#ff0033"]}]
-}
-});
-
-new Chart(document.getElementById("graficoCategoria"),{
-type:"bar",
-data:{
-labels:Object.keys(categorias),
-datasets:[{
-data:Object.values(categorias),
-backgroundColor:"#00ff88"
-}]
-}
-});
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawMaze();
+    drawExit();
+    drawPlayer();
+    drawWolf();
 }
 
-function criarMeta(){
-let nome=document.getElementById("nomeMeta").value;
-let valor=parseFloat(document.getElementById("valorMeta").value);
-let data=new Date(document.getElementById("dataMeta").value);
-let hoje=new Date();
-let dias=Math.ceil((data-hoje)/(1000*60*60*24));
-let porDia=(valor/dias).toFixed(2);
-document.getElementById("metaInfo").innerHTML=
-"Meta: "+nome+"<br>"+
-"Faltam "+dias+" dias<br>"+
-"Guardar por dia: R$"+porDia;
-}
-
-function mostrarSenha(){
-document.getElementById("trocarSenha").style.display="block";
-}
-
-function alterarSenha(){
-let atualSenha=document.getElementById("senhaAtual").value;
-let nova=document.getElementById("novaSenhaUser").value;
-if(atual.senha!==atualSenha){alert("Senha incorreta");return;}
-atual.senha=nova;
-let index=usuarios.findIndex(u=>u.email===atual.email);
-usuarios[index].senha=nova;
-salvarUsuarios();
-alert("Senha alterada!");
-}
-
-function codigoAdmin(){
-let c=prompt("Digite o código:");
-if(c==="0086"&&atual.role==="admin"){
-document.getElementById("admin").style.display="block";
-}
-}
-
-function criarUsuario(){
-if(atual.email!=="iago"){alert("Somente Iago pode criar");return;}
-let u=document.getElementById("novoUser").value;
-let s=document.getElementById("novaSenha").value;
-let r=document.getElementById("nivel").value;
-usuarios.push({email:u,senha:s,role:r});
-salvarUsuarios();
-document.getElementById("lista").innerHTML+=u+" - "+r+"<br>";
-}
-
+generateMaze();
+draw();
 </script>
+
 </body>
 </html>
 
